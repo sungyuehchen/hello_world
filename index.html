@@ -649,42 +649,26 @@ function onCardClick(card, clickedWord) {
   }
 }
 
-// ── Image loading (Wikipedia → Wikimedia Commons → loremflickr) ───────────
+// ── Image loading: Unsplash Source (keyword-accurate, no API key) ──────────
+// Falls back to loremflickr if Unsplash fails.
+// Unsplash Source picks a real photo matching the keyword — far more accurate
+// than Wikipedia thumbnails for simple vocabulary words.
 function loadImage(word, imgEl, placeholder, card) {
   const query = encodeURIComponent(word);
 
-  tryWikipedia();
+  tryUnsplash();
 
-  function tryWikipedia() {
-    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${query}`)
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(data => {
-        const url = data.thumbnail && data.thumbnail.source;
-        if (url) setImage(url, tryWikimediaCommons);
-        else tryWikimediaCommons();
-      })
-      .catch(tryWikimediaCommons);
-  }
-
-  function tryWikimediaCommons() {
-    const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${query}&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=300&format=json&origin=*`;
-    fetch(apiUrl)
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(data => {
-        const pages = data.query && data.query.pages;
-        if (pages) {
-          const page = Object.values(pages)[0];
-          const url  = page.imageinfo && page.imageinfo[0] && page.imageinfo[0].thumburl;
-          if (url) { setImage(url, tryLoremFlickr); return; }
-        }
-        tryLoremFlickr();
-      })
-      .catch(tryLoremFlickr);
+  function tryUnsplash() {
+    // Unsplash Source: returns a redirect to a keyword-matched photo.
+    // Use a random seed so different cards for the same word get variety.
+    const seed = Math.floor(Math.random() * 1000);
+    const url  = `https://source.unsplash.com/240x240/?${query}&sig=${seed}`;
+    setImage(url, tryLoremFlickr);
   }
 
   function tryLoremFlickr() {
     const lock = Math.floor(Math.random() * 9000) + 1000;
-    const url  = `https://loremflickr.com/200/200/${query}?lock=${lock}`;
+    const url  = `https://loremflickr.com/240/240/${query}?lock=${lock}`;
     setImage(url, () => { placeholder.textContent = '❓'; });
   }
 
