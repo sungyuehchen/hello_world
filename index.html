@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>英文單字圖片測驗</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 40px 48px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      text-align: center;
+      max-width: 680px;
+      width: 95%;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #fef3c7;
+      color: #d97706;
+      border-radius: 12px;
+      padding: 4px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .progress {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    .progress span {
+      font-weight: 700;
+      color: #667eea;
+    }
+
+    /* ── Target word display ── */
+    .target-area {
+      margin-bottom: 28px;
+    }
+
+    .target-label {
+      font-size: 13px;
+      color: #a0aec0;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .target-word {
+      font-size: 52px;
+      display: inline-block;
+      font-weight: 800;
+      color: #2d3748;
+      letter-spacing: 2px;
+      line-height: 1.1;
+      min-height: 64px;
+    }
+
+    .speak-btn {
+      margin-top: 12px;
+      padding: 10px 24px;
+      border: none;
+      border-radius: 50px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .speak-btn:hover {
+      box-shadow: 0 6px 20px rgba(102,126,234,0.55);
+      transform: translateY(-1px);
+    }
+
+    .speak-btn:active {
+      transform: scale(0.96);
+    }
+
+    .speak-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .speaking-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #fff;
+      border-radius: 50%;
+      animation: pulse 0.6s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.4; transform: scale(0.8); }
+      to   { opacity: 1;   transform: scale(1.2); }
+    }
+
+    .divider {
+      width: 60px;
+      height: 4px;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border-radius: 2px;
+      margin: 20px auto;
+    }
+
+    /* ── Image grid ── */
+    .image-grid {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .img-card {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #f0f0f0;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      flex-shrink: 0;
+    }
+
+    .img-card:hover {
+      transform: translateY(-4px) scale(1.03);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.2);
+    }
+
+    .img-card.locked {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .img-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: opacity 0.4s ease;
+    }
+
+    .img-card img.loading {
+      opacity: 0;
+    }
+
+    .img-placeholder {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 40px;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .img-card.img-loaded .img-placeholder {
+      opacity: 0;
+    }
+
+    .img-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.45);
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 5px 4px;
+      text-align: center;
+      letter-spacing: 0.5px;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .img-label.visible {
+      opacity: 1;
+    }
+
+    /* Chinese text inside card label */
+    .label-zh {
+      display: none;
+      font-size: 12px;
+      color: #ffd700;
+      margin-left: 4px;
+      font-weight: 700;
+    }
+
+    .label-zh.show {
+      display: inline;
+    }
+
+    /* Chinese text below #target-word */
+    #target-chinese {
+      font-size: 32px;
+      color: #e53e3e;
+      font-weight: 700;
+      min-height: 40px;
+      margin-top: 6px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    #target-chinese.show {
+      opacity: 1;
+    }
+
+    /* card label letter spans */
+    .img-label .card-letter {
+      display: inline-block;
+      transition: color 0.1s;
+    }
+
+    .img-label .card-letter.active {
+      color: #e53e3e;
+    }
+
+    /* ── Overlay: circle (correct) or cross (wrong) ── */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .overlay.show {
+      opacity: 1;
+    }
+
+    /* Red circle SVG drawn via canvas-like approach using CSS */
+    .overlay-circle {
+      width: 120px;
+      height: 120px;
+      border: 8px solid #e53e3e;
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px rgba(229,62,62,0.3);
+    }
+
+    /* Red cross */
+    .overlay-cross {
+      position: relative;
+      width: 100px;
+      height: 100px;
+    }
+
+    .overlay-cross::before,
+    .overlay-cross::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100%;
+      height: 8px;
+      background: #e53e3e;
+      border-radius: 4px;
+      box-shadow: 0 0 0 2px rgba(229,62,62,0.3);
+    }
+
+    .overlay-cross::before {
+      transform: translate(-50%, -50%) rotate(45deg);
+    }
+
+    .overlay-cross::after {
+      transform: translate(-50%, -50%) rotate(-45deg);
+    }
+
+    /* ── Letter highlight during spelling ── */
+    .target-word .letter {
+      display: inline-block;
+      transition: color 0.1s;
+    }
+
+    .target-word .letter.active {
+      color: #e53e3e;
+    }
+
+    /* ── Status message ── */
+    .status-msg {
+      margin-top: 22px;
+      font-size: 14px;
+      color: #a0aec0;
+      min-height: 22px;
+    }
+
+    /* ── Round complete flash ── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .round-complete {
+      animation: fadeInUp 0.35s ease;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="badge">🎓 英文單字圖片測驗</div>
+  <div class="progress">第 <span id="current-num">1</span> 輪 &nbsp;|&nbsp; 已完成 <span id="done-num">0</span> / <span id="total-num">?</span> 個單字</div>
+
+  <div class="target-area">
+    <div class="target-label">請選出下面這個單字的圖片：</div>
+    <div class="target-word" id="target-word">載入中…</div>
+    <div id="target-chinese"></div>
+    <button class="speak-btn" id="btn-speak">🔊 再聽一次</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="image-grid" id="image-grid">
+    <!-- 3 img-card elements injected by JS -->
+  </div>
+
+  <div class="status-msg" id="status-msg"></div>
+</div>
+
+<script>
+// ── Embedded vocabulary (same as vocabulary.csv) ──────────────────────────
+const CSV_DATA = `English,Chinese
+apple,蘋果
+ball,球
+cat,貓
+dog,狗
+egg,蛋
+fish,魚
+girl,女孩
+hat,帽子
+ice,冰
+jump,跳
+kite,風箏
+lamp,燈
+map,地圖
+nest,巢
+orange,橘子
+pig,豬
+queen,女王
+run,跑
+sun,太陽
+tree,樹
+umbrella,雨傘
+van,廂型車
+web,網
+box,盒子
+yard,院子
+zoo,動物園
+ant,螞蟻
+bed,床
+cup,杯子
+door,門
+ear,耳朵
+fan,風扇
+gate,大門
+hand,手
+ink,墨水
+jar,罐子
+key,鑰匙
+leg,腿
+milk,牛奶
+nose,鼻子
+owl,貓頭鷹
+pen,筆
+rain,雨
+sock,襪子
+top,頂部
+up,上面
+vet,獸醫
+win,贏
+fox,狐狸
+yes,是的
+arm,手臂
+bus,公車
+car,汽車
+dad,爸爸
+eye,眼睛
+fly,飛
+gum,口香糖
+hop,跳躍
+ice cream,冰淇淋
+jam,果醬
+kid,小孩
+lip,嘴唇
+mom,媽媽
+nap,小睡
+oak,橡樹
+pot,鍋子
+quiz,測驗
+red,紅色
+sit,坐
+tap,輕拍
+use,使用
+vase,花瓶
+wax,蠟
+yak,犛牛
+zip,拉鍊
+bag,袋子
+cap,帽子
+dig,挖
+elf,精靈
+fog,霧
+gap,缺口
+hit,打
+ivy,常春藤
+jog,慢跑
+kit,工具組
+log,木頭
+mud,泥巴
+nod,點頭
+odd,奇怪的
+paw,爪子
+rag,破布
+sip,小口喝
+tub,浴缸
+urn,甕
+vim,活力
+wig,假髮
+yam,山藥
+zap,電擊`;
+
+// ── State ─────────────────────────────────────────────────────────────────
+let allWords    = [];   // [{english, chinese}, ...]
+let remaining   = [];   // indices not yet used in this round
+let roundNum    = 1;
+let doneCount   = 0;
+let currentTriple = []; // [{english, chinese}, ...] — 3 words for this question
+let targetWord  = null; // the word the user must find
+let locked      = false; // prevent clicks during animation
+
+// ── Parse CSV ─────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  allWords = lines.slice(1).map(line => {
+    const comma = line.indexOf(',');
+    return {
+      english: line.slice(0, comma).trim(),
+      chinese: line.slice(comma + 1).trim()
+    };
+  }).filter(w => w.english);
+
+  document.getElementById('total-num').textContent = allWords.length;
+  resetRound();
+  nextQuestion();
+}
+
+// ── Round management ──────────────────────────────────────────────────────
+function resetRound() {
+  remaining = Array.from({length: allWords.length}, (_, i) => i);
+  shuffle(remaining);
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// ── Pick next question ────────────────────────────────────────────────────
+function nextQuestion() {
+  // If fewer than 3 words left in this round, start a new round
+  if (remaining.length < 3) {
+    roundNum++;
+    doneCount = 0;
+    resetRound();
+    setStatus('🎉 這一輪全部完成！開始新一輪…');
+    setTimeout(() => {
+      setStatus('');
+      _doNextQuestion();
+    }, 1500);
+    return;
+  }
+  _doNextQuestion();
+}
+
+function _doNextQuestion() {
+  // Clear Chinese display from previous question
+  const tcEl = document.getElementById('target-chinese');
+  if (tcEl) { tcEl.textContent = ''; tcEl.classList.remove('show'); }
+
+  // Draw 3 unique words
+  const idxA = remaining.pop();
+  const idxB = remaining.pop();
+  const idxC = remaining.pop();
+  currentTriple = [allWords[idxA], allWords[idxB], allWords[idxC]];
+
+  // Pick one as the target (random among the three)
+  const targetIdx = Math.floor(Math.random() * 3);
+  targetWord = currentTriple[targetIdx];
+
+  // Update progress
+  doneCount += 3;
+  document.getElementById('current-num').textContent = roundNum;
+  document.getElementById('done-num').textContent = Math.min(doneCount, allWords.length);
+
+  // Show target word as individual letter spans for highlight animation
+  const twEl = document.getElementById('target-word');
+  twEl.innerHTML = targetWord.english
+    .split('')
+    .map(ch => ch === ' ' ? ' ' : `<span class="letter">${ch}</span>`)
+    .join('');
+
+  // Render image grid
+  renderGrid();
+
+  // Speak the target word automatically (spell + word + Chinese); show Chinese below target word
+  setTimeout(() => speakWord(targetWord.english, targetWord.chinese, true, null, null, true), 400);
+}
+
+// ── Render the 3-image grid ───────────────────────────────────────────────
+function renderGrid() {
+  locked = false;
+  const grid = document.getElementById('image-grid');
+  grid.innerHTML = '';
+
+  // Shuffle display order of the triple
+  const displayOrder = [0, 1, 2];
+  shuffle(displayOrder);
+
+  displayOrder.forEach(i => {
+    const word = currentTriple[i];
+    const card = document.createElement('div');
+    card.className = 'img-card';
+    card.dataset.word = word.english;
+
+    const placeholder = document.createElement('div');
+    placeholder.className = 'img-placeholder';
+    placeholder.textContent = '🖼️';
+
+    const img = document.createElement('img');
+    img.className = 'loading';
+    img.alt = word.english;
+
+    const label = document.createElement('div');
+    label.className = 'img-label';
+    // Render as individual letter spans + hidden Chinese span
+    label.innerHTML = word.english
+      .split('')
+      .map(ch => ch === ' ' ? ' ' : `<span class="card-letter">${ch}</span>`)
+      .join('') + ` <span class="label-zh">${word.chinese}</span>`;
+
+    // Overlay (hidden by default)
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+
+    card.appendChild(placeholder);
+    card.appendChild(img);
+    card.appendChild(label);
+    card.appendChild(overlay);
+    grid.appendChild(card);
+
+    // Load image
+    loadImage(word.english, img, placeholder, card);
+
+    // Click handler
+    card.addEventListener('click', () => onCardClick(card, word.english));
+  });
+}
+
+// ── Handle card click ─────────────────────────────────────────────────────
+function onCardClick(card, clickedWord) {
+  if (locked) return;
+
+  // Reveal only the label on the clicked card
+  const clickedLabel = card.querySelector('.img-label');
+  clickedLabel.classList.add('visible');
+
+  const clickedEntry = currentTriple.find(w => w.english === clickedWord);
+  const overlay = card.querySelector('.overlay');
+
+  if (clickedWord === targetWord.english) {
+    // ── Correct ──
+    locked = true;
+
+    // Speak with per-letter highlight + show Chinese in label and #target-chinese
+    speakWord(
+      clickedWord,
+      clickedEntry ? clickedEntry.chinese : null,
+      true,          // highlightLetters
+      clickedLabel,  // labelEl
+      () => { setTimeout(() => { setStatus(''); nextQuestion(); }, 2000); },
+      true           // showTargetChinese
+    );
+
+    // Draw red circle
+    const circle = document.createElement('div');
+    circle.className = 'overlay-circle';
+    overlay.appendChild(circle);
+    overlay.classList.add('show');
+
+    // Lock all cards
+    document.querySelectorAll('.img-card').forEach(c => c.classList.add('locked'));
+
+    setStatus('✅ 答對了！');
+
+  } else {
+    // ── Wrong ──
+    locked = true;
+
+    // Speak with card-label letter highlight + show Chinese in label only
+    speakWord(clickedWord, clickedEntry ? clickedEntry.chinese : null, false, clickedLabel, null, false);
+
+    // Draw red cross
+    const cross = document.createElement('div');
+    cross.className = 'overlay-cross';
+    overlay.appendChild(cross);
+    overlay.classList.add('show');
+
+    setStatus('❌ 再試一次！');
+
+    // After 500 ms remove cross and unlock
+    setTimeout(() => {
+      overlay.classList.remove('show');
+      overlay.innerHTML = '';
+      setStatus('');
+      locked = false;
+    }, 500);
+  }
+}
+
+// ── Image loading (Wikipedia → Wikimedia Commons → loremflickr) ───────────
+function loadImage(word, imgEl, placeholder, card) {
+  const query = encodeURIComponent(word);
+
+  tryWikipedia();
+
+  function tryWikipedia() {
+    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${query}`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => {
+        const url = data.thumbnail && data.thumbnail.source;
+        if (url) setImage(url, tryWikimediaCommons);
+        else tryWikimediaCommons();
+      })
+      .catch(tryWikimediaCommons);
+  }
+
+  function tryWikimediaCommons() {
+    const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${query}&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=300&format=json&origin=*`;
+    fetch(apiUrl)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => {
+        const pages = data.query && data.query.pages;
+        if (pages) {
+          const page = Object.values(pages)[0];
+          const url  = page.imageinfo && page.imageinfo[0] && page.imageinfo[0].thumburl;
+          if (url) { setImage(url, tryLoremFlickr); return; }
+        }
+        tryLoremFlickr();
+      })
+      .catch(tryLoremFlickr);
+  }
+
+  function tryLoremFlickr() {
+    const lock = Math.floor(Math.random() * 9000) + 1000;
+    const url  = `https://loremflickr.com/200/200/${query}?lock=${lock}`;
+    setImage(url, () => { placeholder.textContent = '❓'; });
+  }
+
+  function setImage(url, onError) {
+    const tmp = new Image();
+    tmp.onload = () => {
+      imgEl.src = url;
+      imgEl.classList.remove('loading');
+      card.classList.add('img-loaded');
+    };
+    tmp.onerror = () => {
+      if (onError) onError();
+      else placeholder.textContent = '❓';
+    };
+    tmp.src = url;
+  }
+}
+
+// ── Speech: spell each letter → whole word → Chinese ─────────────────────
+// highlightLetters  : animate #target-word letter spans (default true)
+// labelEl           : optional card label element whose .card-letter spans also animate
+// onComplete        : optional callback fired after all speech (including Chinese) finishes
+// showTargetChinese : show #target-chinese when Chinese is spoken (correct-click only)
+function speakWord(word, chinese, highlightLetters = true, labelEl = null, onComplete = null, showTargetChinese = false) {
+  window.speechSynthesis.cancel();
+  const btn = document.getElementById('btn-speak');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="speaking-indicator"></span> 播放中…';
+
+  // Grab letter spans from #target-word
+  const twEl = document.getElementById('target-word');
+  const twSpans = highlightLetters
+    ? Array.from(twEl.querySelectorAll('.letter'))
+    : [];
+
+  // Grab letter spans from the card label (if provided)
+  const labelSpans = labelEl
+    ? Array.from(labelEl.querySelectorAll('.card-letter'))
+    : [];
+
+  function clearLetters() {
+    twSpans.forEach(s => s.classList.remove('active'));
+    labelSpans.forEach(s => s.classList.remove('active'));
+  }
+
+  // Build phase 1–3 utterances (spelling + word + Chinese) as a separate array
+  // so they can be queued after the 1-second pause following the intro word.
+  const spellUtterances = [];
+
+  // Phase 1: spell each letter (skip spaces), highlight matching spans
+  let spanIdx = 0;
+  word.split('').forEach(ch => {
+    if (ch === ' ') return;
+    const u = new SpeechSynthesisUtterance(ch);
+    u.lang  = 'en-US';
+    u.rate  = 0.85;
+    u.pitch = 1.1;
+    const capturedIdx = spanIdx++;
+    u.onstart = () => {
+      clearLetters();
+      if (highlightLetters && twSpans[capturedIdx])
+        twSpans[capturedIdx].classList.add('active');
+      if (labelEl && labelSpans[capturedIdx])
+        labelSpans[capturedIdx].classList.add('active');
+    };
+    spellUtterances.push(u);
+  });
+
+  // Phase 2: short pause then whole word (clear highlights)
+  const pause = new SpeechSynthesisUtterance('\u00A0');
+  pause.lang = 'en-US';
+  pause.rate = 0.1;
+  pause.onstart = () => clearLetters();
+  spellUtterances.push(pause);
+
+  const wordUtt = new SpeechSynthesisUtterance(word);
+  wordUtt.lang  = 'en-US';
+  wordUtt.rate  = 0.8;
+  wordUtt.pitch = 1.0;
+  spellUtterances.push(wordUtt);
+
+  // Phase 3: after word → Chinese (if provided), then restore colours
+  const lastUtt = spellUtterances[spellUtterances.length - 1];
+  lastUtt.onend = () => {
+    if (chinese) {
+      setTimeout(() => {
+        // Show Chinese text in card label
+        if (labelEl) {
+          const zhSpan = labelEl.querySelector('.label-zh');
+          if (zhSpan) zhSpan.classList.add('show');
+        }
+        // Show Chinese text below #target-word only when requested
+        if (showTargetChinese) {
+          const tcEl = document.getElementById('target-chinese');
+          if (tcEl) { tcEl.textContent = chinese; tcEl.classList.add('show'); }
+        }
+
+        const zhUtt = new SpeechSynthesisUtterance(chinese);
+        zhUtt.lang  = 'zh-TW';
+        zhUtt.rate  = 0.85;
+        zhUtt.pitch = 1.0;
+        zhUtt.onend = () => {
+          clearLetters();
+          btn.disabled = false;
+          btn.innerHTML = '🔊 再聽一次';
+          if (onComplete) onComplete();
+        };
+        window.speechSynthesis.speak(zhUtt);
+      }, 400);
+    } else {
+      clearLetters();
+      btn.disabled = false;
+      btn.innerHTML = '🔊 再聽一次';
+      if (onComplete) onComplete();
+    }
+  };
+
+  // Phase 0: say the whole word once, then wait 1 s before spelling
+  const introUtt = new SpeechSynthesisUtterance(word);
+  introUtt.lang  = 'en-US';
+  introUtt.rate  = 0.8;
+  introUtt.pitch = 1.0;
+  introUtt.onend = () => {
+    setTimeout(() => {
+      spellUtterances.forEach(u => window.speechSynthesis.speak(u));
+    }, 1000);
+  };
+  window.speechSynthesis.speak(introUtt);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function setStatus(msg) {
+  document.getElementById('status-msg').textContent = msg;
+}
+
+// ── Button wiring ─────────────────────────────────────────────────────────
+document.getElementById('btn-speak').addEventListener('click', () => {
+  if (targetWord) speakWord(targetWord.english, targetWord.chinese);
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+parseCSV(CSV_DATA);
+</script>
+</body>
+</html>
