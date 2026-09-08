@@ -649,26 +649,38 @@ function onCardClick(card, clickedWord) {
   }
 }
 
-// ── Image loading: Unsplash Source (keyword-accurate, no API key) ──────────
-// Falls back to loremflickr if Unsplash fails.
-// Unsplash Source picks a real photo matching the keyword — far more accurate
-// than Wikipedia thumbnails for simple vocabulary words.
+// ── Image loading: cartoon/illustration style ─────────────────────────────
+// Uses Wikimedia Commons SVG search (illustrations/clipart) as primary,
+// falls back to loremflickr with cartoon tag.
 function loadImage(word, imgEl, placeholder, card) {
   const query = encodeURIComponent(word);
 
-  tryUnsplash();
+  tryWikimediaCartoon();
 
-  function tryUnsplash() {
-    // Unsplash Source: returns a redirect to a keyword-matched photo.
-    // Use a random seed so different cards for the same word get variety.
-    const seed = Math.floor(Math.random() * 1000);
-    const url  = `https://source.unsplash.com/240x240/?${query}&sig=${seed}`;
-    setImage(url, tryLoremFlickr);
+  function tryWikimediaCartoon() {
+    // Search Wikimedia Commons for SVG files (clipart/illustrations) matching the word
+    const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${query}+filetype:svg&gsrlimit=5&prop=imageinfo&iiprop=url&iiurlwidth=240&format=json&origin=*`;
+    fetch(apiUrl)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => {
+        const pages = data.query && data.query.pages;
+        if (pages) {
+          const hits = Object.values(pages).filter(p => p.imageinfo && p.imageinfo[0] && p.imageinfo[0].thumburl);
+          if (hits.length > 0) {
+            const pick = hits[Math.floor(Math.random() * hits.length)];
+            setImage(pick.imageinfo[0].thumburl, tryLoremFlickrCartoon);
+            return;
+          }
+        }
+        tryLoremFlickrCartoon();
+      })
+      .catch(tryLoremFlickrCartoon);
   }
 
-  function tryLoremFlickr() {
+  function tryLoremFlickrCartoon() {
+    // loremflickr with cartoon tag for illustration-style images
     const lock = Math.floor(Math.random() * 9000) + 1000;
-    const url  = `https://loremflickr.com/240/240/${query}?lock=${lock}`;
+    const url  = `https://loremflickr.com/240/240/${query},cartoon?lock=${lock}`;
     setImage(url, () => { placeholder.textContent = '❓'; });
   }
 
